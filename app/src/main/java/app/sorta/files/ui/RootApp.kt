@@ -122,6 +122,9 @@ fun SortaNavHost(nav: NavHostController, container: AppContainer) {
         composable(Dest.RULES) { app.sorta.files.ui.rules.RulesScreen(nav, container) }
         composable(Dest.RULE_PREVIEW) { app.sorta.files.ui.rules.RulePreviewScreen(nav, container) }
         composable(Dest.INBOX_SOURCES) { app.sorta.files.ui.inbox.InboxSourcesScreen(nav, container) }
+        composable(Dest.SETTINGS) { app.sorta.files.ui.settings.SettingsScreen(nav, container) }
+        composable(Dest.LARGE_FILES) { app.sorta.files.ui.storage.LargeFilesScreen(nav, container) }
+        composable(Dest.DUPLICATES) { app.sorta.files.ui.storage.DuplicatesScreen(nav, container) }
         composable(
             Dest.FOLDER,
             arguments = listOf(navArgument("path") { type = NavType.StringType })

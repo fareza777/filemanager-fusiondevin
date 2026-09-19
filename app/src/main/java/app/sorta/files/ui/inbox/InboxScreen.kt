@@ -53,6 +53,7 @@ import androidx.navigation.NavController
 import app.sorta.files.AppContainer
 import app.sorta.files.R
 import app.sorta.files.SortaApp
+import app.sorta.files.core.fs.FileSystem
 import app.sorta.files.core.ops.OpType
 import app.sorta.files.core.scan.InboxFile
 import app.sorta.files.core.scan.InboxScanner
@@ -256,20 +257,14 @@ fun InboxScreen(nav: NavController, container: AppContainer) {
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                         }
                         items(list, key = { it.item.path }) { inf ->
-                            Column {
-                                FileRow(inf.item, inf.item.path in selection, inSelection,
-                                    onClick = {
-                                        if (inSelection) vm.toggle(inf.item.path)
-                                        else FileActions.open(context, nav, inf.item)
-                                    },
-                                    onLongClick = { vm.longPress(inf) })
-                                Text(
-                                    stringResource(R.string.inbox_from, inf.sourceLabel),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 72.dp),
-                                )
-                            }
+                            FileRow(inf.item, inf.item.path in selection, inSelection,
+                                onClick = {
+                                    if (inSelection) vm.toggle(inf.item.path)
+                                    else FileActions.open(context, nav, inf.item)
+                                },
+                                onLongClick = { vm.longPress(inf) },
+                                subtitleOverride = stringResource(R.string.inbox_row_sub,
+                                    FileSystem.formatSize(inf.item.size), inf.sourceLabel))
                         }
                     }
                 }

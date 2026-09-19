@@ -51,6 +51,7 @@ fun FileRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     errorBadge: Boolean = false,
+    subtitleOverride: String? = null,
 ) {
     Row(
         Modifier
@@ -68,7 +69,7 @@ fun FileRow(
         Column(Modifier.weight(1f)) {
             Text(item.name, style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sub = if (item.isDir) {
+            val sub = subtitleOverride ?: if (item.isDir) {
                 pluralStringResource(R.plurals.items_count, item.childCount ?: 0, item.childCount ?: 0)
             } else FileSystem.formatSize(item.size)
             Text(sub, style = MaterialTheme.typography.bodySmall,
@@ -104,5 +105,11 @@ fun FileGridCell(
         Spacer(Modifier.height(6.dp))
         Text(item.name, style = MaterialTheme.typography.bodySmall,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (item.isDir) {
+            Text(pluralStringResource(R.plurals.items_count,
+                item.childCount ?: 0, item.childCount ?: 0),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
     }
 }

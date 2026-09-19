@@ -61,9 +61,9 @@ class TrashManager(private val trashDao: TrashDao) {
         ok
     }
 
-    /** Delete entries older than 30 days. Called on app start. */
-    suspend fun purgeExpired() {
-        val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+    /** Delete entries older than [days] (default 30). Called on app start. */
+    suspend fun purgeExpired(days: Int = 30) {
+        val cutoff = System.currentTimeMillis() - days.toLong() * 24 * 60 * 60 * 1000
         trashDao.olderThan(cutoff).forEach { e ->
             File(e.trashPath).deleteRecursively()
             trashDao.delete(e.trashPath)

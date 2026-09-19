@@ -58,39 +58,6 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StorageScreen(nav: NavController, container: AppContainer) {
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.tab_storage)) })
-    }) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Card(Modifier.fillMaxWidth().clickable { nav.navigate(Dest.TRASH) }) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.storage_trash), Modifier.padding(start = 12.dp))
-                    Spacer(Modifier.weight(1f))
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
-                }
-            }
-            Card(Modifier.fillMaxWidth().clickable { nav.navigate(Dest.HISTORY) }) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.History, null, tint = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.storage_history), Modifier.padding(start = 12.dp))
-                    Spacer(Modifier.weight(1f))
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
-                }
-            }
-            Card(Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.placeholder_screen),
-                    Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun TrashScreen(nav: NavController, container: AppContainer) {
     val entries by container.db.trashDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
@@ -157,7 +124,9 @@ fun TrashScreen(nav: NavController, container: AppContainer) {
                         })
                     Column(Modifier.padding(start = 8.dp)) {
                         Text(e.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(e.originalPath, style = MaterialTheme.typography.bodySmall,
+                        Text(app.sorta.files.core.fs.DisplayName.localized(
+                            androidx.compose.ui.platform.LocalContext.current, e.originalPath),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         Text("${fmt.format(Date(e.deletedAt))} · ${FileSystem.formatSize(e.size)}",
                             style = MaterialTheme.typography.labelSmall,

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import app.sorta.files.AppContainer
 import app.sorta.files.R
+import app.sorta.files.core.fs.DisplayName
 import app.sorta.files.core.fs.FileSystem
 import app.sorta.files.core.ops.OpType
 import app.sorta.files.core.rename.BatchRenamePattern
@@ -145,6 +146,14 @@ fun TidyFlowSheet(
                 }
                 1 -> {
                     Text(stringResource(R.string.tidy_favorites), style = MaterialTheme.typography.titleSmall)
+                    if (favorites.isEmpty()) {
+                        Text(stringResource(R.string.tidy_no_favorites),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { browsePicker = true }) {
+                            Text(stringResource(R.string.tidy_add_favorite))
+                        }
+                    }
                     LazyColumn(Modifier.height(200.dp)) {
                         items(favorites, key = { it.path }) { f ->
                             Row(Modifier.fillMaxWidth()
@@ -155,7 +164,8 @@ fun TidyFlowSheet(
                                     tint = MaterialTheme.colorScheme.tertiary)
                                 Column(Modifier.padding(start = 12.dp)) {
                                     Text(f.label)
-                                    Text(f.path, style = MaterialTheme.typography.bodySmall,
+                                    Text(DisplayName.localized(LocalContext.current, f.path),
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -173,7 +183,8 @@ fun TidyFlowSheet(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Column(Modifier.padding(start = 12.dp)) {
                                     Text(l.label)
-                                    Text(l.path, style = MaterialTheme.typography.bodySmall,
+                                    Text(DisplayName.localized(LocalContext.current, l.path),
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -184,7 +195,8 @@ fun TidyFlowSheet(
                     }
                 }
                 2 -> {
-                    Text(stringResource(R.string.tidy_summary, files.size, dest ?: ""),
+                    Text(stringResource(R.string.tidy_summary, files.size,
+                        DisplayName.localized(LocalContext.current, dest ?: "")),
                         style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -234,7 +246,8 @@ fun FavoriteDestPicker(
                         Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.tertiary)
                         Column(Modifier.padding(start = 12.dp)) {
                             Text(f.label)
-                            Text(f.path, style = MaterialTheme.typography.bodySmall,
+                            Text(DisplayName.localized(LocalContext.current, f.path),
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }

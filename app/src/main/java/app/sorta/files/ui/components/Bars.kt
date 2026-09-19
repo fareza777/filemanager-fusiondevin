@@ -71,6 +71,7 @@ fun SelectionTopBar(count: Int, onClose: () -> Unit, onSelectAll: () -> Unit) {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun BottomActionBar(
     single: Boolean,
@@ -95,26 +96,32 @@ fun BottomActionBar(
             ActionBtn(Icons.Outlined.Delete, R.string.action_delete, onDelete)
             ActionBtn(Icons.Outlined.Share, R.string.action_share, onShare)
             ActionBtn(Icons.Outlined.ShoppingBasket, R.string.action_add_basket, onBasket)
-            Box {
-                IconButton(onClick = { more.value = true }) {
-                    Icon(Icons.Outlined.MoreVert, stringResource(R.string.action_more))
+            ActionBtn(Icons.Outlined.MoreVert, R.string.action_more) { more.value = true }
+        }
+    }
+    if (more.value) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { more.value = false }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                moreItems.forEach { (label, cb) ->
+                    TextButton(
+                        onClick = { more.value = false; cb() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(label) }
                 }
-                androidx.compose.material3.DropdownMenu(expanded = more.value, onDismissRequest = { more.value = false }) {
-                    moreItems.forEach { (label, cb) ->
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = { more.value = false; cb() },
-                        )
-                    }
-                }
+                Spacer(Modifier.padding(10.dp))
             }
         }
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, labelRes: Int, onClick: () -> Unit) {
-    IconButton(onClick = onClick) { Icon(icon, stringResource(labelRes)) }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(onClick = onClick) { Icon(icon, stringResource(labelRes)) }
+        Text(stringResource(labelRes), style = MaterialTheme.typography.labelSmall,
+            maxLines = 1)
+    }
 }
 
 /** Persistent "Paste here" bar when the SelectionBasket is non-empty. */

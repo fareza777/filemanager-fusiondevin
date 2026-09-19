@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -178,6 +179,23 @@ fun DetailsDialog(item: FileItem, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall)
                 Text("${stringResource(R.string.details_modified)}: ${fmt.format(Date(item.lastModified))}",
                     style = MaterialTheme.typography.bodySmall)
+                if (!item.isDir) {
+                    var md5 by remember { mutableStateOf<String?>(null) }
+                    LaunchedEffect(item.path) {
+                        md5 = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching {
+                                val md = java.security.MessageDigest.getInstance("MD5")
+                                java.io.File(item.path).inputStream().use { s ->
+                                    val buf = ByteArray(65536)
+                                    while (true) { val n = s.read(buf); if (n < 0) break; md.update(buf, 0, n) }
+                                }
+                                md.digest().joinToString("") { "%02x".format(it) }
+                            }.getOrNull()
+                        }
+                    }
+                    Text("${stringResource(R.string.details_md5)}: ${md5 ?: "…"}",
+                        style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_ok)) } },

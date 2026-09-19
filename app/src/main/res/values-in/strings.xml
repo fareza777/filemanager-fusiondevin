@@ -226,4 +226,65 @@
     <string name="overwrite_warning">Item yang ada akan diganti secara permanen.</string>
     <string name="inbox_from">dari %1$s</string>
 
+    <string name="internal_storage">Penyimpanan internal</string>
+    <string name="storage_usage">Penggunaan penyimpanan</string>
+    <string name="storage_scanning">Memindai…</string>
+    <string name="storage_refresh">Segarkan</string>
+    <string name="storage_scanned_ago">Dipindai %1$s</string>
+    <string name="storage_large_files">File besar</string>
+    <string name="storage_large_sub">File lebih dari 50 MB</string>
+    <string name="storage_duplicates">Duplikat</string>
+    <string name="storage_duplicates_sub">%1$d grup · %2$s terbuang</string>
+    <string name="storage_duplicates_none">Tidak ada duplikat</string>
+    <string name="storage_trash_sub">%1$d item · %2$s</string>
+    <string name="storage_empty_folders">Folder kosong</string>
+    <string name="storage_scanning_dups">Memindai duplikat…</string>
+    <string name="large_files_title">File besar</string>
+    <string name="dups_title">Duplikat</string>
+    <string name="dups_keep_newest">Simpan terbaru</string>
+    <string name="dups_group">%1$d salinan · %2$s per file</string>
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sistem</string>
+    <string name="settings_theme_light">Terang</string>
+    <string name="settings_theme_dark">Gelap</string>
+    <string name="settings_default_view">Tampilan bawaan</string>
+    <string name="settings_view_list">Daftar</string>
+    <string name="settings_view_grid">Grid</string>
+    <string name="settings_show_hidden">Tampilkan file tersembunyi</string>
+    <string name="settings_thumbs">Tampilkan thumbnail</string>
+    <string name="settings_inbox_sources">Sumber Inbox</string>
+    <string name="settings_rules">Aturan sortir</string>
+    <string name="settings_purge_days">Kosongkan sampah otomatis</string>
+    <string name="settings_purge_days_fmt">Setelah %1$d hari</string>
+    <string name="settings_remove_ads">Hapus iklan</string>
+    <string name="settings_purchased">Sudah dibeli</string>
+    <string name="settings_restore">Pulihkan pembelian</string>
+    <string name="settings_storage_access">Kelola akses penyimpanan</string>
+    <string name="settings_about">Tentang</string>
+    <string name="settings_version">Versi %1$s</string>
+    <string name="settings_licenses">Lisensi open-source</string>
+    <string name="settings_privacy">Kebijakan privasi</string>
+    <string name="settings_section_general">Umum</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_section_about">Tentang</string>
+    <string name="licenses_text">Jetpack Compose (Apache-2.0)
+Material 3 Components (Apache-2.0)
+Room (Apache-2.0)
+DataStore (Apache-2.0)
+Coil (Apache-2.0)
+Kotlin coroutines (Apache-2.0)
+Navigation Compose (Apache-2.0)
+Google Mobile Ads SDK (proprietary)
+Play Billing Library (Apache-2.0)</string>
+    <string name="home_inbox_card">Inbox: %1$d file baru · Rapikan sekarang</string>
+    <string name="onboarding_p1_title">Selamat datang di Sorta</string>
+    <string name="onboarding_p1_body">Jelajahi, cari, dan rapikan file Anda. Unduhan baru masuk ke Inbox — ganti nama dan arsipkan dalam tiga ketukan.</string>
+    <string name="onboarding_next">Berikutnya</string>
+    <string name="details_md5">MD5</string>
+    <string name="billing_error">Billing tidak tersedia (%1$s)</string>
+    <string name="tidy_no_favorites">Belum ada folder favorit</string>
+    <string name="tidy_add_favorite">Tambah favorit</string>
+    <string name="category_other">Lainnya</string>
+    <string name="inbox_row_sub">%1$s · %2$s</string>
 </resources>

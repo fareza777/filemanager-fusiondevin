@@ -10,13 +10,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -95,13 +101,26 @@ fun HomeScreen(nav: NavController, container: AppContainer) {
     val recent by vm.recent.collectAsState()
     val favorites by vm.favorites.collectAsState()
     val locations by vm.locations.collectAsState()
+    val inboxNew by container.inboxBadgeCount.collectAsState()
 
-    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        Modifier.fillMaxSize()
+            .statusBarsPadding()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         item {
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary)
-            Text(stringResource(R.string.tagline), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.tagline), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { nav.navigate(Dest.SETTINGS) }) {
+                    Icon(Icons.Outlined.Settings, stringResource(R.string.settings_title))
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Card(Modifier.fillMaxWidth().clickable { nav.navigate(Dest.SEARCH) }) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -109,6 +128,21 @@ fun HomeScreen(nav: NavController, container: AppContainer) {
                     Text(stringResource(R.string.home_search_hint),
                         modifier = Modifier.padding(start = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (inboxNew > 0) {
+            item {
+                Card(Modifier.fillMaxWidth().clickable { nav.navigate(Dest.INBOX) },
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Inbox, null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(stringResource(R.string.home_inbox_card, inboxNew),
+                            modifier = Modifier.padding(start = 10.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
                 }
             }
         }
@@ -143,11 +177,24 @@ fun HomeScreen(nav: NavController, container: AppContainer) {
             item { Text(stringResource(R.string.empty_results),
                 color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
-            items(shown.size) { i ->
-                val item = shown[i]
-                FileRow(item, false, false,
-                    onClick = { FileActions.open(context, nav, item) },
-                    onLongClick = { })
+            // horizontally scrolling large thumbnail cards, grouped under one day
+            item {
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    shown.forEach { item ->
+                        Column(
+                            Modifier.padding(end = 10.dp).width(96.dp)
+                                .clickable { FileActions.open(context, nav, item) },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            app.sorta.files.ui.components.Thumbnail(item,
+                                Modifier.size(96.dp))
+                            Spacer(Modifier.height(4.dp))
+                            Text(item.name, style = MaterialTheme.typography.labelSmall,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
+                    }
+                }
             }
         }
         item {
@@ -178,7 +225,8 @@ fun HomeScreen(nav: NavController, container: AppContainer) {
                 Card(Modifier.fillMaxWidth().clickable { nav.navigate(Dest.folder(l.path)) }) {
                     Column(Modifier.padding(12.dp)) {
                         Text(l.label)
-                        Text(l.path, style = MaterialTheme.typography.bodySmall,
+                        Text(app.sorta.files.core.fs.DisplayName.localized(context, l.path),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

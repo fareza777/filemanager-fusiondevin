@@ -8,6 +8,7 @@ import app.sorta.files.data.prefs.UserPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class AppContainer(app: Application) {
@@ -23,6 +24,8 @@ class AppContainer(app: Application) {
 
     /** New-inbox-file count for the nav badge; InboxScreen keeps it updated. */
     val inboxBadgeCount = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+    lateinit var billing: app.sorta.files.core.billing.BillingManager
 }
 
 class SortaApp : Application(), coil.ImageLoaderFactory {
@@ -33,8 +36,14 @@ class SortaApp : Application(), coil.ImageLoaderFactory {
         super.onCreate()
         container = AppContainer(this)
         appScope.launch {
-            try { container.trashManager.purgeExpired() } catch (_: Exception) {}
+            try {
+                val days = container.prefs.purgeDays.first()
+                container.trashManager.purgeExpired(days)
+            } catch (_: Exception) {}
         }
+        container.billing = app.sorta.files.core.billing.BillingManager(
+            this, container.prefs, appScope)
+        container.billing.start()
         // Seed default inbox sources
         appScope.launch {
             val dao = container.db.inboxSourceDao()

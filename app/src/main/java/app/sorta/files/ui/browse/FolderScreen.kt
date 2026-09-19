@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -132,6 +133,7 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
     LaunchedEffect(container.operations.lastResults.collectAsState().value) { vm.reload() }
 
     val inSelection = selection.isNotEmpty()
+    BackHandler(enabled = inSelection) { vm.clearSelection() }
 
     Scaffold(
         topBar = {
@@ -248,7 +250,9 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
                 restricted -> RestrictedInfo()
                 items.isEmpty() -> EmptyState(stringResource(R.string.empty_folder))
                 grid -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(
+                        if (context.resources.configuration.orientation ==
+                            android.content.res.Configuration.ORIENTATION_LANDSCAPE) 5 else 3),
                     state = rememberLazyGridStateWrapper(listState),
                     modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                 ) {

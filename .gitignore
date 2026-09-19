@@ -7,3 +7,4 @@ local.properties
 *.iml
 .cxx/
 .kotlin/
+keystore.properties

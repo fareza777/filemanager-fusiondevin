@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,7 +33,9 @@ fun Thumbnail(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
-    if (!thumbnailable(item)) {
+    val thumbsOn = (LocalContext.current.applicationContext as? app.sorta.files.SortaApp)
+        ?.container?.prefs?.showThumbs?.collectAsState(initial = true)?.value ?: true
+    if (!thumbnailable(item) || !thumbsOn) {
         FileIcon(item, modifier, contentScale)
         return
     }
