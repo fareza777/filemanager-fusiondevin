@@ -76,7 +76,9 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
             _restricted.value = app.sorta.files.core.fs.RestrictedPaths.isRestricted(path) ||
                 app.sorta.files.core.fs.FileSystem.isUnreadable(path)
             _items.value = FileSystem.list(path, showHidden.value, sort.value)
-            locDao.upsert(RecentLocation(path, File(path).name.ifEmpty { path }))
+            locDao.upsert(RecentLocation(path,
+                File(path).name.ifEmpty { path }.let { n ->
+                    if (n == "0") "Internal storage" else n }))
         }
     }
 

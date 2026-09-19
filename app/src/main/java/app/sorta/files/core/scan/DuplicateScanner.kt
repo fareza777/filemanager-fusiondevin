@@ -14,7 +14,15 @@ data class DuplicateScan(
     val groups: List<List<FileItem>>,
     val filesScanned: Int,
     val done: Boolean,
-)
+) {
+    /** Bytes recoverable by keeping one copy per group. */
+    val wastedBytes: Long get() = groups.sumOf { g -> g.drop(1).sumOf { it.size } }
+}
+
+/** Last completed/ongoing duplicate scan, shared with the Storage summary card. */
+object DuplicateScanCache {
+    val last = kotlinx.coroutines.flow.MutableStateFlow<DuplicateScan?>(null)
+}
 
 object DuplicateScanner {
     const val MIN_SIZE = 1L // include everything; size-grouping is cheap

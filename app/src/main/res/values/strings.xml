@@ -281,4 +281,5 @@
     <string name="tidy_add_favorite">Add favorite</string>
     <string name="category_other">Other</string>
     <string name="inbox_row_sub">%1$s · %2$s</string>
+<string name="storage_duplicates_hint">Identical files across folders</string>
 </resources>

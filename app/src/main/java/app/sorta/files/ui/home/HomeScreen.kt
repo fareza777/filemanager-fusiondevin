@@ -85,6 +85,17 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             _volumes.value = StorageVolumes.list(getApplication())
             _recent.value = RecentFilesScanner.recent(getApplication(), 7, 40)
+            // keep the shared inbox badge count warm so Home shows the card
+            // even before the Inbox tab has been opened
+            try {
+                val sources = container.db.inboxSourceDao().enabled()
+                var n = 0
+                app.sorta.files.core.scan.InboxScanner.scan(
+                    sources, container.db.inboxStateDao()).collect { batch ->
+                    n += batch.count { !it.tidied }
+                }
+                container.inboxBadgeCount.value = n
+            } catch (_: Exception) {}
         }
     }
 

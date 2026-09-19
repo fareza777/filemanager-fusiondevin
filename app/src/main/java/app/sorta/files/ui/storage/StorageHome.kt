@@ -19,8 +19,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -61,6 +63,7 @@ import app.sorta.files.core.fs.StorageVolumes
 import app.sorta.files.core.fs.VolumeInfo
 import app.sorta.files.core.ops.OpType
 import app.sorta.files.core.scan.DuplicateScan
+import app.sorta.files.core.scan.DuplicateScanCache
 import app.sorta.files.core.scan.DuplicateScanner
 import app.sorta.files.core.scan.StorageUsage
 import app.sorta.files.core.scan.StorageUsageSnapshot
@@ -211,12 +214,18 @@ fun StorageScreen(nav: NavController, container: AppContainer) {
             }
             item { AdBanner() }
             item {
-                LinkCard(Icons.Outlined.Delete, stringResource(R.string.storage_large_files),
+                LinkCard(Icons.Outlined.Storage, stringResource(R.string.storage_large_files),
                     stringResource(R.string.storage_large_sub)) { nav.navigate(Dest.LARGE_FILES) }
             }
             item {
-                LinkCard(Icons.Outlined.Delete, stringResource(R.string.storage_duplicates),
-                    stringResource(R.string.storage_duplicates)) { nav.navigate(Dest.DUPLICATES) }
+                val dupScan by DuplicateScanCache.last.collectAsState()
+                val dupSub = if (dupScan?.done == true)
+                    stringResource(R.string.storage_duplicates_sub,
+                        dupScan!!.groups.size,
+                        FileSystem.formatSize(dupScan!!.wastedBytes))
+                else stringResource(R.string.storage_duplicates_hint)
+                LinkCard(Icons.Outlined.ContentCopy, stringResource(R.string.storage_duplicates),
+                    dupSub) { nav.navigate(Dest.DUPLICATES) }
             }
             item {
                 LinkCard(Icons.Outlined.Delete, stringResource(R.string.storage_trash),
@@ -393,8 +402,12 @@ class DuplicatesViewModel(app: Application) : AndroidViewModel(app) {
         job = viewModelScope.launch {
             val vols = StorageVolumes.list(getApplication())
             vols.firstOrNull()?.let { v ->
-                try { DuplicateScanner.scan(File(v.path)).collect { _scan.value = it } }
-                catch (_: Exception) {}
+                try {
+                    DuplicateScanner.scan(File(v.path)).collect {
+                        _scan.value = it
+                        DuplicateScanCache.last.value = it
+                    }
+                } catch (_: Exception) {}
             }
         }
     }

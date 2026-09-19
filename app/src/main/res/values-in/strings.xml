@@ -287,4 +287,5 @@ Play Billing Library (Apache-2.0)</string>
     <string name="tidy_add_favorite">Tambah favorit</string>
     <string name="category_other">Lainnya</string>
     <string name="inbox_row_sub">%1$s · %2$s</string>
+<string name="storage_duplicates_hint">File identik di berbagai folder</string>
 </resources>
