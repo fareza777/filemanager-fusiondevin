@@ -15,6 +15,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,6 +41,7 @@ import app.sorta.files.ui.search.SearchScreen
 import app.sorta.files.ui.components.ConflictDialogHost
 import app.sorta.files.ui.components.OperationProgressHost
 import app.sorta.files.ui.onboarding.OnboardingGate
+import androidx.navigation.NavGraph.Companion.findStartDestination
 
 private data class Tab(val route: String, val labelRes: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
@@ -55,20 +57,38 @@ fun RootApp(container: AppContainer) {
     val nav = rememberNavController()
     OnboardingGate(container) {
         Scaffold(
+            contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
             bottomBar = {
                 val backStack by nav.currentBackStackEntryAsState()
                 val current = backStack?.destination?.route
-                NavigationBar {
+                // Show the bar on tab roots and browsable screens only.
+                val showBar = current == null ||
+                    current in tabs.map { it.route } ||
+                    current.startsWith("folder") || current.startsWith("category")
+                if (showBar) NavigationBar {
                     tabs.forEach { t ->
+                        val badgeCount = if (t.route == Dest.INBOX)
+                            container.inboxBadgeCount.collectAsState().value else 0
                         NavigationBarItem(
                             selected = current == t.route,
                             onClick = {
                                 nav.navigate(t.route) {
-                                    popUpTo(Dest.HOME) { saveState = false }
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                    restoreState = true
                                     launchSingleTop = true
                                 }
                             },
-                            icon = { Icon(t.icon, contentDescription = null) },
+                            icon = {
+                                androidx.compose.material3.BadgedBox(
+                                    badge = {
+                                        if (badgeCount > 0) {
+                                            androidx.compose.material3.Badge {
+                                                Text(if (badgeCount > 99) "99+" else "$badgeCount")
+                                            }
+                                        }
+                                    }
+                                ) { Icon(t.icon, contentDescription = null) }
+                            },
                             label = { Text(stringResource(t.labelRes)) },
                         )
                     }
@@ -88,11 +108,20 @@ fun RootApp(container: AppContainer) {
 fun SortaNavHost(nav: NavHostController, container: AppContainer) {
     NavHost(nav, startDestination = Dest.HOME) {
         composable(Dest.HOME) { HomeScreen(nav, container) }
-        composable(Dest.INBOX) { app.sorta.files.ui.components.PlaceholderScreen(stringResource(R.string.tab_inbox)) }
+        composable(Dest.INBOX) { app.sorta.files.ui.inbox.InboxScreen(nav, container) }
         composable(Dest.BROWSE) { BrowseRootScreen(nav, container) }
-        composable(Dest.STORAGE) { app.sorta.files.ui.components.PlaceholderScreen(stringResource(R.string.tab_storage)) }
+        composable(Dest.STORAGE) { app.sorta.files.ui.storage.StorageScreen(nav, container) }
         composable(Dest.SEARCH) { SearchScreen(nav, container) }
         composable(Dest.RECENT) { RecentScreen(nav, container) }
+        composable(Dest.TRASH) { app.sorta.files.ui.storage.TrashScreen(nav, container) }
+        composable(Dest.HISTORY) { app.sorta.files.ui.storage.HistoryScreen(nav, container) }
+        composable(Dest.BATCH_RENAME, arguments = listOf(navArgument("paths") { type = NavType.StringType })) { e ->
+            app.sorta.files.ui.rename.BatchRenameScreen(nav, container,
+                Dest.decode(e.arguments?.getString("paths")).split("|"))
+        }
+        composable(Dest.RULES) { app.sorta.files.ui.rules.RulesScreen(nav, container) }
+        composable(Dest.RULE_PREVIEW) { app.sorta.files.ui.rules.RulePreviewScreen(nav, container) }
+        composable(Dest.INBOX_SOURCES) { app.sorta.files.ui.inbox.InboxSourcesScreen(nav, container) }
         composable(
             Dest.FOLDER,
             arguments = listOf(navArgument("path") { type = NavType.StringType })

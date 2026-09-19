@@ -91,7 +91,7 @@ fun BottomActionBar(
         ) {
             ActionBtn(Icons.Outlined.ContentCopy, R.string.action_copy, onCopy)
             ActionBtn(Icons.Outlined.DriveFileMove, R.string.action_move, onMove)
-            if (single) ActionBtn(Icons.Outlined.Edit, R.string.action_rename, onRename)
+            ActionBtn(Icons.Outlined.Edit, R.string.action_rename, onRename)
             ActionBtn(Icons.Outlined.Delete, R.string.action_delete, onDelete)
             ActionBtn(Icons.Outlined.Share, R.string.action_share, onShare)
             ActionBtn(Icons.Outlined.ShoppingBasket, R.string.action_add_basket, onBasket)

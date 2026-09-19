@@ -20,9 +20,12 @@ class AppContainer(app: Application) {
         historyDao = db.historyDao(),
         trashRoot = { f -> trashManager.trashRootFor(f) },
     ).also { OperationController.instance = it }
+
+    /** New-inbox-file count for the nav badge; InboxScreen keeps it updated. */
+    val inboxBadgeCount = kotlinx.coroutines.flow.MutableStateFlow(0)
 }
 
-class SortaApp : Application() {
+class SortaApp : Application(), coil.ImageLoaderFactory {
     lateinit var container: AppContainer
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -39,11 +42,17 @@ class SortaApp : Application() {
                 val dl = android.os.Environment.getExternalStoragePublicDirectory(
                     android.os.Environment.DIRECTORY_DOWNLOADS)
                 dao.upsert(app.sorta.files.data.db.InboxSource(dl.absolutePath, "Downloads"))
-                val shots = java.io.File(
+                listOf(
+                    java.io.File(android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_PICTURES), "Screenshots") to "Screenshots",
                     android.os.Environment.getExternalStoragePublicDirectory(
-                        android.os.Environment.DIRECTORY_PICTURES), "Screenshots")
-                if (shots.isDirectory) {
-                    dao.upsert(app.sorta.files.data.db.InboxSource(shots.absolutePath, "Screenshots"))
+                        android.os.Environment.DIRECTORY_DOCUMENTS) to "Documents",
+                    java.io.File(dl.parentFile, "Telegram") to "Telegram",
+                    java.io.File(dl.parentFile, "WhatsApp/Media/WhatsApp Documents") to "WhatsApp",
+                    java.io.File(dl.parentFile, "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents") to "WhatsApp",
+                ).forEach { (f, label) ->
+                    if (f.isDirectory) dao.upsert(
+                        app.sorta.files.data.db.InboxSource(f.absolutePath, label))
                 }
             }
         }
@@ -52,4 +61,14 @@ class SortaApp : Application() {
             com.google.android.gms.ads.MobileAds.initialize(this) {}
         } catch (_: Throwable) {}
     }
+
+    override fun newImageLoader(): coil.ImageLoader =
+        coil.ImageLoader.Builder(this)
+            .components {
+                add(coil.decode.VideoFrameDecoder.Factory())
+                add(app.sorta.files.core.fs.PdfThumbnailFetcher.Factory())
+                add(app.sorta.files.core.fs.ApkIconFetcher.Factory())
+            }
+            .crossfade(true)
+            .build()
 }

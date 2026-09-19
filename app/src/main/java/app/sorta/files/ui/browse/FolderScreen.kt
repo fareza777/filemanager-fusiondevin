@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -94,6 +95,11 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
     var deleteConfirm by remember { mutableStateOf(false) }
     var detailsItem by remember { mutableStateOf<FileItem?>(null) }
+    var compressDialog by remember { mutableStateOf(false) }
+    var zipSheet by remember { mutableStateOf<FileItem?>(null) }
+    var destPicker by remember { mutableStateOf(false) }
+    val permLost by container.operations.permissionLost.collectAsState()
+    val extractPicker = remember { mutableStateOf<FileItem?>(null) }
 
     LaunchedEffect(path) { vm.loadFolder(path) }
 
@@ -140,6 +146,17 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
                     }
                 },
                 actions = {
+                    if (permLost) {
+                        TextButton(onClick = {
+                            container.operations.clearPermissionLost()
+                            (context as? android.app.Activity)?.let {
+                                (it as? app.sorta.files.MainActivity)?.openAllFilesAccess()
+                            }
+                        }) {
+                            Text(stringResource(R.string.perm_lost),
+                                color = MaterialTheme.colorScheme.error, maxLines = 1)
+                        }
+                    }
                     IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Outlined.Sort, null) }
                     DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                         listOf(
@@ -197,7 +214,12 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
                         canFavorite = sel.size == 1 && sel.first().isDir,
                         onCopy = { SelectionBasket.set(sel, OpType.COPY); vm.clearSelection() },
                         onMove = { SelectionBasket.set(sel, OpType.MOVE); vm.clearSelection() },
-                        onRename = { renameTarget = sel.first() },
+                        onRename = {
+                            if (sel.size > 1) {
+                                nav.navigate(Dest.batchRename(sel.map { it.path }))
+                                vm.clearSelection()
+                            } else renameTarget = sel.first()
+                        },
                         onDelete = { deleteConfirm = true },
                         onShare = { FileActions.share(context, sel) },
                         onBasket = { SelectionBasket.add(sel, OpType.COPY); vm.clearSelection() },
@@ -213,7 +235,8 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
                                     vm.addFavorite(sel.first()); vm.clearSelection()
                                 })
                             }
-                            add(stringResource(R.string.action_compress) + " (soon)" to {})
+                            add(stringResource(R.string.action_compress) to { compressDialog = true })
+                            add(stringResource(R.string.move_to_favorite) to { destPicker = true })
                         },
                     )
                 }
@@ -233,7 +256,7 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
                         FileGridCell(item, item.path in selection, inSelection,
                             onClick = {
                                 if (inSelection) vm.toggleSelect(item)
-                                else FileActions.open(context, nav, item)
+                                else openItem(context, nav, item) { zipSheet = it }
                             },
                             onLongClick = { vm.longPress(item) })
                     }
@@ -243,7 +266,7 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
                         FileRow(item, item.path in selection, inSelection,
                             onClick = {
                                 if (inSelection) vm.toggleSelect(item)
-                                else FileActions.open(context, nav, item)
+                                else openItem(context, nav, item) { zipSheet = it }
                             },
                             onLongClick = { vm.longPress(item) })
                     }
@@ -294,6 +317,103 @@ fun FolderScreen(nav: NavController, container: AppContainer, path: String) {
         )
     }
     detailsItem?.let { DetailsDialog(it, onDismiss = { detailsItem = null }) }
+
+    if (compressDialog) {
+        val sel = items.filter { it.path in selection }
+        NameDialog(
+            title = stringResource(R.string.zip_compress_title),
+            initial = (sel.firstOrNull()?.name?.substringBeforeLast('.')
+                ?: stringResource(R.string.zip_default_name)) + ".zip",
+            confirmLabel = stringResource(R.string.action_compress),
+            onConfirm = { name ->
+                compressDialog = false
+                vm.clearSelection()
+                container.operations.runCompress(sel.map { File(it.path) },
+                    File(path, if (name.endsWith(".zip")) name else "$name.zip"))
+            },
+            onDismiss = { compressDialog = false },
+        )
+    }
+
+    zipSheet?.let { z ->
+        ZipActionSheet(item = z, currentDir = path,
+            onExtractHere = {
+                container.operations.run(OpType.EXTRACT, listOf(File(z.path)), File(path),
+                    app.sorta.files.core.ops.ConflictPolicy.KEEP_BOTH)
+                zipSheet = null
+            },
+            onExtractNew = {
+                val dir = File(path, z.name.removeSuffix(".zip"))
+                container.operations.run(OpType.EXTRACT, listOf(File(z.path)), dir,
+                    app.sorta.files.core.ops.ConflictPolicy.KEEP_BOTH)
+                zipSheet = null
+            },
+            onExtractTo = { extractPicker.value = z; zipSheet = null },
+            onOpenWith = { FileActions.openWith(context, z); zipSheet = null },
+            onDismiss = { zipSheet = null })
+    }
+    extractPicker.value?.let { z ->
+        app.sorta.files.ui.components.FolderPickerDialog(container,
+            onSelect = { d ->
+                extractPicker.value = null
+                container.operations.run(OpType.EXTRACT, listOf(File(z.path)), File(d),
+                    app.sorta.files.core.ops.ConflictPolicy.KEEP_BOTH)
+            },
+            onDismiss = { extractPicker.value = null })
+    }
+
+    if (destPicker) {
+        val sel = items.filter { it.path in selection }
+        app.sorta.files.ui.inbox.FavoriteDestPicker(container,
+            onPick = { dest ->
+                destPicker = false; vm.clearSelection()
+                container.operations.run(OpType.MOVE, sel.map { File(it.path) }, File(dest))
+            },
+            onDismiss = { destPicker = false })
+    }
+}
+
+/** Taps: zips get an action sheet; everything else goes through FileActions.open. */
+private fun openItem(
+    context: android.content.Context,
+    nav: NavController,
+    item: FileItem,
+    onZip: (FileItem) -> Unit,
+) {
+    if (!item.isDir && app.sorta.files.core.zip.ZipExtractor.isZip(File(item.path))) onZip(item)
+    else FileActions.open(context, nav, item)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ZipActionSheet(
+    item: FileItem,
+    currentDir: String,
+    onExtractHere: () -> Unit,
+    onExtractNew: () -> Unit,
+    onExtractTo: () -> Unit,
+    onOpenWith: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(20.dp)) {
+            Text(item.name, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.padding(6.dp))
+            TextButton(onClick = onExtractHere, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.zip_extract_here))
+            }
+            TextButton(onClick = onExtractNew, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.zip_extract_to_new, item.name.removeSuffix(".zip")))
+            }
+            TextButton(onClick = onExtractTo, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.zip_extract_to))
+            }
+            TextButton(onClick = onOpenWith, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.zip_open_with))
+            }
+            Spacer(Modifier.padding(10.dp))
+        }
+    }
 }
 
 @Composable
@@ -307,25 +427,42 @@ private fun SelectionTopBarInline(count: Int, onClose: () -> Unit, onSelectAll: 
 
 @Composable
 private fun Breadcrumbs(path: String, onNavigate: (String) -> Unit) {
+    // Strip the storage-root prefix; first crumb = volume label.
     val segments = remember(path) {
-        val parts = mutableListOf<Pair<String, String>>() // label to full path
-        var cur = File(path)
-        while (true) {
-            parts.add(0, (cur.name.ifEmpty { "/" }) to cur.absolutePath)
-            val p = cur.parentFile ?: break
-            if (p.absolutePath == cur.absolutePath) break
-            cur = p
-            if (parts.size > 12) break
+        val volPrefixes = listOf("/storage/emulated/0", "/sdcard") +
+            (java.io.File("/storage").listFiles()?.map { it.absolutePath } ?: emptyList())
+        val volRoot = volPrefixes.filter { path.startsWith(it) }
+            .maxByOrNull { it.length }
+        val label = when (volRoot) {
+            null -> "/"
+            "/sdcard", "/storage/emulated/0" -> null // resolve below
+            else -> volRoot.substringAfterLast('/')
         }
-        parts
+        val parts = mutableListOf<Pair<String, String>>()
+        val rel = if (volRoot != null) path.removePrefix(volRoot) else path
+        var acc = volRoot ?: ""
+        if (volRoot != null) {
+            val volLabel = if (volRoot == "/storage/emulated/0" || volRoot == "/sdcard")
+                "Internal storage" else volRoot.substringAfterLast('/')
+            parts += volLabel to volRoot
+        }
+        rel.split('/').filter { it.isNotEmpty() }.forEach { seg ->
+            acc = "$acc/$seg"
+            parts += seg to acc
+        }
+        if (parts.isEmpty()) parts += "Internal storage" to path
+        parts.takeLast(12)
     }
     Row(Modifier.horizontalScroll(rememberScrollState()),
         verticalAlignment = Alignment.CenterVertically) {
         segments.forEachIndexed { i, (label, p) ->
             if (i > 0) Text("/", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = { onNavigate(p) }) {
-                Text(if (label == "0" && p.contains("emulated")) "Internal" else label,
-                    maxLines = 1, style = MaterialTheme.typography.bodyMedium)
+            val isLast = i == segments.lastIndex
+            TextButton(onClick = { if (!isLast) onNavigate(p) }, enabled = !isLast) {
+                Text(label, maxLines = 1,
+                    style = if (isLast) MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    else MaterialTheme.typography.bodyMedium)
             }
         }
     }

@@ -46,6 +46,10 @@ fun ConflictDialogHost(container: AppContainer) {
         text = {
             Column {
                 Text(stringResource(R.string.conflict_body, r.sourceName))
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.overwrite_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = applyAll, onCheckedChange = { applyAll = it })
@@ -65,7 +69,10 @@ fun ConflictDialogHost(container: AppContainer) {
                 }) { Text(stringResource(R.string.conflict_skip)) }
                 TextButton(onClick = {
                     container.operations.resolveConflict(ConflictPolicy.OVERWRITE, applyAll)
-                }) { Text(stringResource(R.string.conflict_overwrite)) }
+                }) {
+                    Text(stringResource(R.string.conflict_overwrite),
+                        color = MaterialTheme.colorScheme.error)
+                }
             }
         },
     )
@@ -173,7 +180,7 @@ fun DetailsDialog(item: FileItem, onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_ok)) } },
     )
 }
 
