@@ -139,7 +139,7 @@ fun TidyFlowSheet(
                         }
                     }
                     LazyColumn(Modifier.height(200.dp)) {
-                        items(favorites, key = { it.path }) { f ->
+                        items(favorites, key = { "fav:" + it.path }) { f ->
                             Row(Modifier.fillMaxWidth()
                                 .clickable { dest = f.path; step = 2 }
                                 .padding(vertical = 8.dp),
@@ -159,7 +159,8 @@ fun TidyFlowSheet(
                                 style = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier.padding(top = 8.dp))
                         }
-                        items(recentDests.filter { it.path != dest }.take(5), key = { it.path }) { l ->
+                        items(recentDests.filter { it.path != dest }.take(5),
+                            key = { "recent:" + it.path }) { l ->
                             Row(Modifier.fillMaxWidth()
                                 .clickable { dest = l.path; step = 2 }
                                 .padding(vertical = 8.dp)) {

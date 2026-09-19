@@ -66,7 +66,9 @@ import app.sorta.files.ui.components.FileRow
 import app.sorta.files.ui.navigation.Dest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -79,23 +81,37 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
     private val _files = MutableStateFlow<List<InboxFile>>(emptyList())
     val files: StateFlow<List<InboxFile>> = _files
     val tab = MutableStateFlow(0) // 0=New 1=Tidied
+    private val _scanning = MutableStateFlow(true)
+    val scanning: StateFlow<Boolean> = _scanning
     private val _selection = MutableStateFlow<Set<String>>(emptySet())
     val selection: StateFlow<Set<String>> = _selection
+
+    /** Reactive New/Tidied list — collected from init, not recomputed on tap. */
+    val shown: StateFlow<List<InboxFile>> =
+        kotlinx.coroutines.flow.combine(_files, tab) { f, t ->
+            f.filter { it.tidied == (t == 1) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private var anchor: Int? = null
+
+    init { scan() }
 
     fun scan() {
         viewModelScope.launch(Dispatchers.IO) {
+            _scanning.value = true
             val sources = container.db.inboxSourceDao().enabled()
             val acc = mutableListOf<InboxFile>()
-            InboxScanner.scan(sources, container.db.inboxStateDao()).collect { batch ->
-                acc += batch
-                _files.value = acc.sortedByDescending { it.item.lastModified }
-                container.inboxBadgeCount.value = acc.count { !it.tidied }
-            }
+            try {
+                InboxScanner.scan(sources, container.db.inboxStateDao()).collect { batch ->
+                    acc += batch
+                    _files.value = acc.sortedByDescending { it.item.lastModified }
+                    container.inboxBadgeCount.value = acc.count { !it.tidied }
+                }
+            } finally { _scanning.value = false }
         }
     }
 
-    fun shown(): List<InboxFile> = _files.value.filter { it.tidied == (tab.value == 1) }
+    fun shownNow(): List<InboxFile> = shown.value
 
     fun toggle(p: String) {
         val s = _selection.value.toMutableSet()
@@ -104,7 +120,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun longPress(item: InboxFile) {
-        val list = shown()
+        val list = shown.value
         val idx = list.indexOfFirst { it.item.path == item.item.path }
         val a = anchor
         if (_selection.value.isNotEmpty() && a != null && idx >= 0) {
@@ -114,7 +130,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
         anchor = idx
     }
 
-    fun selectAll() { _selection.value = shown().map { it.item.path }.toSet() }
+    fun selectAll() { _selection.value = shown.value.map { it.item.path }.toSet() }
     fun clearSel() { _selection.value = emptySet(); anchor = null }
 
     fun markTidied(paths: List<String>, tidied: Boolean = true) {
@@ -160,7 +176,6 @@ fun InboxScreen(nav: NavController, container: AppContainer) {
     var menu by remember { mutableStateOf(false) }
     var destPicker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { vm.scan() }
     val movedToTrash = stringResource(R.string.deleted_snackbar)
     val undoLabel = stringResource(R.string.action_undo)
     val lastTrashed by container.operations.lastTrashed.collectAsState()
@@ -174,7 +189,8 @@ fun InboxScreen(nav: NavController, container: AppContainer) {
     }
     LaunchedEffect(container.operations.lastResults.collectAsState().value) { vm.scan() }
 
-    val shown = vm.shown()
+    val shown by vm.shown.collectAsState()
+    val scanning by vm.scanning.collectAsState()
     val inSelection = selection.isNotEmpty()
 
     Scaffold(
@@ -236,7 +252,16 @@ fun InboxScreen(nav: NavController, container: AppContainer) {
                     Text(stringResource(R.string.inbox_tidied))
                 }
             }
-            if (shown.isEmpty()) {
+            if (scanning && shown.isEmpty()) {
+                Column(Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(R.string.storage_scanning),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else if (shown.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center) {
