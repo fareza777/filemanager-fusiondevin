@@ -81,9 +81,9 @@ class OperationEngineTest {
     @Test fun `failed item is marked and operation continues`() = runTest {
         val (eng, _) = engine()
         val realCopy = eng.copyBytes
-        eng.copyBytes = { src, dst, cb ->
+        eng.copyBytes = { src, dst, cb, sc ->
             if (src.name == "bad.txt") throw java.io.IOException("simulated io failure")
-            realCopy(src, dst, cb)
+            realCopy(src, dst, cb, sc)
         }
         val dst = tmp.newFolder("d3")
         val bad = tmp.newFile("bad.txt").apply { writeText("x") }
