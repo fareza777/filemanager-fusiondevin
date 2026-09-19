@@ -43,6 +43,11 @@ class OperationController(
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running
 
+    /** Set when any item fails with permission_denied → UI shows grant-access banner. */
+    private val _permissionLost = MutableStateFlow(false)
+    val permissionLost: StateFlow<Boolean> = _permissionLost
+    fun clearPermissionLost() { _permissionLost.value = false }
+
     /** Snapshot of last delete-to-trash for Undo. */
     private val _lastTrashed = MutableStateFlow<List<TrashEntry>?>(null)
     val lastTrashed: StateFlow<List<TrashEntry>?> = _lastTrashed
@@ -89,6 +94,12 @@ class OperationController(
     ) {
         if (_running.value) return
         val eng = OperationEngine(this)
+        eng.onMediaScan = { paths ->
+            try {
+                android.media.MediaScannerConnection.scanFile(
+                    appContext, paths.toTypedArray(), null, null)
+            } catch (_: Exception) {}
+        }
         engine = eng
         _running.value = true
         _lastResults.value = null
@@ -102,12 +113,39 @@ class OperationController(
                     val entries = synchronized(trashBuffer) { trashBuffer.toList().also { trashBuffer.clear() } }
                     _lastTrashed.value = entries
                 }
+                if (results.any { it.error == "permission_denied" }) _permissionLost.value = true
                 writeHistory(opType, results)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 _lastResults.value = emptyList()
             } finally {
                 _running.value = false
-                appContext.stopService(android.content.Intent(appContext, FileOperationService::class.java))
+            }
+        }
+    }
+
+    /** Compress [sources] to [outFile] through the engine (progress + history). */
+    fun runCompress(sources: List<File>, outFile: File) {
+        if (_running.value) return
+        val eng = OperationEngine(this)
+        eng.onMediaScan = { paths ->
+            try {
+                android.media.MediaScannerConnection.scanFile(
+                    appContext, paths.toTypedArray(), null, null)
+            } catch (_: Exception) {}
+        }
+        engine = eng
+        _running.value = true
+        _lastResults.value = null
+        FileOperationService.start(appContext)
+        job = scope.launch {
+            try {
+                val results = eng.runCompress(sources, outFile)
+                _lastResults.value = results
+                writeHistory(OpType.COMPRESS, results)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _lastResults.value = emptyList()
+            } finally {
+                _running.value = false
             }
         }
     }

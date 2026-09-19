@@ -26,8 +26,17 @@ interface InboxSourceDao {
     @Query("SELECT * FROM inbox_sources WHERE enabled = 1")
     fun observeEnabled(): Flow<List<InboxSource>>
 
+    @Query("SELECT * FROM inbox_sources WHERE enabled = 1")
+    suspend fun enabled(): List<InboxSource>
+
+    @Query("SELECT * FROM inbox_sources")
+    fun observeAll(): Flow<List<InboxSource>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(s: InboxSource)
+
+    @Query("DELETE FROM inbox_sources WHERE path = :path")
+    suspend fun delete(path: String)
 
     @Query("SELECT COUNT(*) FROM inbox_sources")
     suspend fun count(): Int
@@ -40,6 +49,9 @@ interface InboxStateDao {
 
     @Query("SELECT * FROM inbox_state WHERE path = :path")
     suspend fun get(path: String): InboxState?
+
+    @Query("DELETE FROM inbox_state WHERE path = :path")
+    suspend fun delete(path: String)
 }
 
 @Dao
@@ -67,6 +79,9 @@ interface HistoryDao {
 
     @Query("SELECT * FROM history ORDER BY at DESC LIMIT :limit")
     fun observeRecent(limit: Int = 200): Flow<List<HistoryEntry>>
+
+    @Query("DELETE FROM history")
+    suspend fun clear()
 }
 
 @Dao

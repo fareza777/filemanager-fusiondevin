@@ -36,6 +36,11 @@ class FileOperationService : Service() {
                     val pct = if (p.totalBytes > 0) (p.doneBytes * 100 / p.totalBytes).toInt() else 0
                     getSystemService(NotificationManager::class.java)
                         .notify(NOTIF_ID, buildNotification(p.currentItem, pct, p.doneItems))
+                } else if (p?.finished == true) {
+                    // self-stop shortly after completion — avoids racing a
+                    // startForegroundService/stopService pair on slow devices
+                    android.os.Handler(android.os.Looper.getMainLooper())
+                        .postDelayed({ stopSelf() }, 1500)
                 }
             }
         }

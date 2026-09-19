@@ -26,6 +26,7 @@ abstract class SortaDatabase : RoomDatabase() {
     abstract fun trashDao(): TrashDao
     abstract fun historyDao(): HistoryDao
     abstract fun sortRuleDao(): SortRuleDao
+    abstract fun sortRuleCrudDao(): SortRuleCrudDao
     abstract fun recentLocationDao(): RecentLocationDao
     abstract fun folderPrefDao(): FolderPrefDao
 

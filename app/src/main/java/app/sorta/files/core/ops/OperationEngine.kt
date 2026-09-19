@@ -15,7 +15,7 @@ import java.io.IOException
 import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
 
-enum class OpType { COPY, MOVE, DELETE, DELETE_PERMANENT, RENAME, NEW_FOLDER }
+enum class OpType { COPY, MOVE, DELETE, DELETE_PERMANENT, RENAME, NEW_FOLDER, COMPRESS, EXTRACT }
 
 enum class ConflictPolicy { ASK, SKIP, KEEP_BOTH, OVERWRITE }
 
@@ -63,11 +63,12 @@ class OperationEngine(private val host: OperationHost) {
     @Volatile private var applyAllPolicy: ConflictPolicy? = null
 
     /** Injectable copier for tests (simulate IO failures). */
-    var copyBytes: (File, File, (Long) -> Unit) -> Unit = { src, dst, onBytes ->
+    var copyBytes: (File, File, (Long) -> Unit, () -> Boolean) -> Unit = { src, dst, onBytes, shouldContinue ->
         FileInputStream(src).channel.use { inCh ->
             FileOutputStream(dst).channel.use { outCh ->
                 val buf = java.nio.ByteBuffer.allocate(64 * 1024)
                 while (true) {
+                    if (!shouldContinue()) throw CancellationException()
                     buf.clear()
                     val n = inCh.read(buf)
                     if (n < 0) break
@@ -79,6 +80,9 @@ class OperationEngine(private val host: OperationHost) {
             }
         }
     }
+
+    /** Called with affected paths after each op so MediaStore stays in sync. */
+    var onMediaScan: (List<String>) -> Unit = {}
 
     var sha256: (File) -> String = { f ->
         val md = MessageDigest.getInstance("SHA-256")
@@ -120,11 +124,13 @@ class OperationEngine(private val host: OperationHost) {
         renameTarget: String? = null,
     ): List<ItemResult> = withContext(Dispatchers.IO) {
         applyAllPolicy = if (conflictPolicy == ConflictPolicy.ASK) null else conflictPolicy
+        continueFlag = { coroutineContext.isActive }
         val results = sources.map { ItemResult(it.absolutePath, null) }
         var totalBytes = 0L
         sources.forEach { totalBytes += try { totalSizeOf(it) } catch (_: Exception) { 0L } }
         var doneItems = 0
         var doneBytes = 0L
+        val scanPaths = mutableListOf<String>()
         fun emit(current: String?) {
             _progress.value = OperationProgress(
                 opType, sources.size, doneItems, totalBytes, doneBytes, current)
@@ -178,21 +184,80 @@ class OperationEngine(private val host: OperationHost) {
                         res.dest = target.absolutePath
                         res.status = ItemStatus.SUCCESS
                     }
+                    OpType.COMPRESS -> {
+                        // handled by runCompress — not reached via per-item loop
+                        res.status = ItemStatus.SKIPPED
+                    }
+                    OpType.EXTRACT -> {
+                        app.sorta.files.core.zip.ZipExtractor.extract(
+                            src, destDir!!, applyAllPolicy ?: conflictPolicy,
+                            { d, n -> keepBothName(d, n) },
+                            { doneBytes += it; emit(src.name) }, continueFlag)
+                        res.dest = destDir.absolutePath
+                        res.status = ItemStatus.SUCCESS
+                    }
                 }
             } catch (ce: CancellationException) {
+                res.status = ItemStatus.FAILED
+                res.error = "cancelled"
                 throw ce
+            } catch (e: SecurityException) {
+                res.status = ItemStatus.FAILED
+                res.error = "permission_denied"
             } catch (e: Exception) {
                 if (res.status == ItemStatus.RUNNING) {
                     res.status = ItemStatus.FAILED
-                    res.error = e.message ?: e.javaClass.simpleName
+                    res.error = when (e) {
+                        is OpFailure -> e.key
+                        else -> e.message ?: e.javaClass.simpleName
+                    }
                 }
             }
+            res.dest?.let { scanPaths += it }
+            scanPaths += src.absolutePath
             doneItems++
             emit(src.name)
         }
         _progress.value = _progress.value!!.copy(finished = true)
+        try { onMediaScan(scanPaths.distinct()) } catch (_: Exception) {}
         results
     }
+
+    /** Compress all [sources] into [outFile]; single-item result batch. */
+    suspend fun runCompress(
+        sources: List<File>,
+        outFile: File,
+    ): List<ItemResult> = withContext(Dispatchers.IO) {
+        continueFlag = { coroutineContext.isActive }
+        val results = sources.map { ItemResult(it.absolutePath, null) }
+        var totalBytes = 0L
+        sources.forEach { totalBytes += try { totalSizeOf(it) } catch (_: Exception) { 0L } }
+        var doneBytes = 0L
+        fun emit(cur: String?) {
+            _progress.value = OperationProgress(
+                OpType.COMPRESS, 1, 0, totalBytes, doneBytes, cur)
+        }
+        emit(outFile.name)
+        try {
+            app.sorta.files.core.zip.ZipCompressor.compress(
+                sources, outFile,
+                { doneBytes += it; emit(outFile.name) }, continueFlag)
+            results.forEach { it.status = ItemStatus.SUCCESS; it.dest = outFile.absolutePath }
+        } catch (ce: CancellationException) {
+            _progress.value = _progress.value!!.copy(cancelled = true, finished = true)
+            throw ce
+        } catch (e: Exception) {
+            results.forEach {
+                it.status = ItemStatus.FAILED
+                it.error = if (e is OpFailure) e.key else (e.message ?: "generic")
+            }
+        }
+        _progress.value = _progress.value!!.copy(doneItems = 1, finished = true)
+        try { onMediaScan(listOf(outFile.absolutePath)) } catch (_: Exception) {}
+        results
+    }
+
+    class OpFailure(val key: String) : IOException(key)
 
     private suspend fun resolveConflict(src: File, destDir: File, res: ItemResult): File? {
         var dest = File(destDir, src.name)
@@ -206,10 +271,21 @@ class OperationEngine(private val host: OperationHost) {
         return when (policy) {
             ConflictPolicy.SKIP -> { res.status = ItemStatus.SKIPPED; null }
             ConflictPolicy.KEEP_BOTH -> File(destDir, keepBothName(destDir, src.name))
-            ConflictPolicy.OVERWRITE -> dest
+            ConflictPolicy.OVERWRITE -> {
+                if (dest.isDirectory && src.isFile) throw OpFailure("dest_exists_dir")
+                dest
+            }
             ConflictPolicy.ASK -> { res.status = ItemStatus.SKIPPED; null }
         }
     }
+
+    private fun isIntoItself(src: File, destDir: File): Boolean = try {
+        val s = src.canonicalPath.trimEnd('/') + '/'
+        val d = destDir.canonicalPath.trimEnd('/') + '/'
+        d.startsWith(s)
+    } catch (_: Exception) { false }
+
+    @Volatile private var continueFlag: () -> Boolean = { true }
 
     private fun copyTree(src: File, dest: File, onBytes: (Long) -> Unit) {
         if (src.isDirectory) {
@@ -218,11 +294,11 @@ class OperationEngine(private val host: OperationHost) {
         } else {
             val tmp = File(dest.parentFile, ".sorta_tmp_" + dest.name)
             try {
-                copyBytes(src, tmp, onBytes)
-                if (tmp.length() != src.length()) throw IOException("size mismatch")
+                copyBytes(src, tmp, onBytes, continueFlag)
+                if (tmp.length() != src.length()) throw OpFailure("size_mismatch")
                 if (src.length() <= 64L * 1024 * 1024 && sha256(tmp) != sha256(src))
-                    throw IOException("checksum mismatch")
-                if (dest.exists() && !dest.delete()) throw IOException("cannot overwrite")
+                    throw OpFailure("checksum_mismatch")
+                if (dest.exists() && !dest.delete()) throw OpFailure("dest_exists_dir")
                 if (!tmp.renameTo(dest)) throw IOException("rename failed")
             } catch (e: Exception) {
                 tmp.delete()
@@ -232,6 +308,7 @@ class OperationEngine(private val host: OperationHost) {
     }
 
     private suspend fun copyItem(src: File, destDir: File, res: ItemResult, onBytes: (Long) -> Unit) {
+        if (src.isDirectory && isIntoItself(src, destDir)) throw OpFailure("into_itself")
         val dest = resolveConflict(src, destDir, res) ?: return
         copyTree(src, dest, onBytes)
         res.dest = dest.absolutePath
@@ -247,12 +324,13 @@ class OperationEngine(private val host: OperationHost) {
             onBytes(totalSizeOf(naive))
             return
         }
+        if (src.isDirectory && isIntoItself(src, destDir)) throw OpFailure("into_itself")
         val dest = resolveConflict(src, destDir, res) ?: return
         copyTree(src, dest, onBytes)
         // verified — now delete source
         if (!src.deleteRecursively()) {
             res.status = ItemStatus.FAILED
-            res.error = "source delete failed after copy"
+            res.error = "source_delete_failed"
             return
         }
         res.dest = dest.absolutePath
