@@ -288,4 +288,9 @@ Play Billing Library (Apache-2.0)</string>
     <string name="category_other">Lainnya</string>
     <string name="inbox_row_sub">%1$s · %2$s</string>
 <string name="storage_duplicates_hint">File identik di berbagai folder</string>
+    <string name="action_close">Tutup</string>
+    <string name="action_view_history">Lihat riwayat</string>
+    <string name="op_cancel">Batalkan operasi</string>
+    <string name="op_summary">%1$d berhasil · %2$d gagal · %3$d dilewati</string>
+    <string name="conflict_dest">Tujuan: %1$s</string>
 </resources>

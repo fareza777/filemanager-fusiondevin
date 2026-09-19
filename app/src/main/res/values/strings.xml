@@ -282,4 +282,9 @@
     <string name="category_other">Other</string>
     <string name="inbox_row_sub">%1$s · %2$s</string>
 <string name="storage_duplicates_hint">Identical files across folders</string>
+    <string name="action_close">Close</string>
+    <string name="action_view_history">View history</string>
+    <string name="op_cancel">Cancel operation</string>
+    <string name="op_summary">%1$d succeeded · %2$d failed · %3$d skipped</string>
+    <string name="conflict_dest">Destination: %1$s</string>
 </resources>

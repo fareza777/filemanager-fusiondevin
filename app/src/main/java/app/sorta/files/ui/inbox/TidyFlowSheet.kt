@@ -57,6 +57,7 @@ fun TidyFlowSheet(
     files: List<InboxFile>,
     onDone: (List<String>) -> Unit, // new paths marked tidied
     onDismiss: () -> Unit,
+    onConfirmOp: (String) -> Unit = {}, // dest path chosen; parent starts the op
 ) {
     var step by remember { mutableStateOf(0) }
     var dest by remember { mutableStateOf<String?>(null) }
@@ -70,23 +71,6 @@ fun TidyFlowSheet(
         .collectAsState(initial = emptyList())
     val recentDests by container.db.recentLocationDao().observeRecent(5)
         .collectAsState(initial = emptyList())
-    val lastResults by container.operations.lastResults.collectAsState()
-
-    // watch for op completion
-    androidx.compose.runtime.LaunchedEffect(lastResults) {
-        val res = lastResults ?: return@LaunchedEffect
-        if (res.isNotEmpty() && res.all { it.dest != null }) {
-            val newPaths = res.mapNotNull { r ->
-                if (r.status == app.sorta.files.core.ops.ItemStatus.SUCCESS) r.dest else null
-            }
-            dest?.let { d ->
-                container.db.recentLocationDao().upsert(
-                    app.sorta.files.data.db.RecentLocation(d, File(d).name))
-            }
-            onDone(newPaths)
-        }
-    }
-
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             // stepper
@@ -203,14 +187,9 @@ fun TidyFlowSheet(
                         TextButton(onClick = { step = 1 }) { Text(stringResource(R.string.tidy_back)) }
                         Button(onClick = {
                             val d = dest ?: return@Button
-                            if (files.size == 1) {
-                                container.operations.run(OpType.MOVE,
-                                    listOf(File(files[0].item.path)), File(d))
-                            } else {
-                                // move each to dest then rename per pattern via engine renameTargets
-                                container.operations.run(OpType.MOVE,
-                                    files.map { File(it.item.path) }, File(d))
-                            }
+                            // dismiss this sheet BEFORE starting the op — the
+                            // progress sheet must be the only sheet on screen
+                            onConfirmOp(d)
                         }) { Text(stringResource(R.string.tidy_confirm)) }
                     }
                 }

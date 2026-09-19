@@ -286,6 +286,23 @@ fun InboxScreen(nav: NavController, container: AppContainer) {
         )
     }
 
+    var tidyDest by remember { mutableStateOf<String?>(null) }
+    val lastResults by container.operations.lastResults.collectAsState()
+    LaunchedEffect(lastResults, tidyDest) {
+        val d = tidyDest ?: return@LaunchedEffect
+        val res = lastResults ?: return@LaunchedEffect
+        if (res.isEmpty()) { tidyDest = null; return@LaunchedEffect }
+        val newPaths = res.mapNotNull { r ->
+            if (r.status == app.sorta.files.core.ops.ItemStatus.SUCCESS) r.dest else null
+        }
+        container.db.recentLocationDao().upsert(
+            app.sorta.files.data.db.RecentLocation(d, File(d).name))
+        vm.markNewPaths(newPaths)
+        vm.clearSel()
+        tidyDest = null
+        vm.scan()
+    }
+
     tidySheet?.let { sel ->
         TidyFlowSheet(nav, container, sel,
             onDone = { tidied ->
@@ -294,7 +311,14 @@ fun InboxScreen(nav: NavController, container: AppContainer) {
                 tidySheet = null
                 vm.scan()
             },
-            onDismiss = { tidySheet = null })
+            onDismiss = { tidySheet = null },
+            onConfirmOp = { d ->
+                // sheet dismissed first; op runs so the progress sheet is alone
+                tidySheet = null
+                tidyDest = d
+                container.operations.run(OpType.MOVE,
+                    sel.map { File(it.item.path) }, File(d))
+            })
     }
 
     if (destPicker) {

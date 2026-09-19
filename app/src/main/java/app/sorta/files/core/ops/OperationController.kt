@@ -55,7 +55,10 @@ class OperationController(
     override suspend fun askConflict(sourceName: String, destPath: String): Pair<ConflictPolicy, Boolean> {
         val req = ConflictRequest(sourceName, destPath, CompletableDeferred())
         _pendingConflict.value = req
-        val r = req.response.await()
+        // Never hang: if the UI never answers (host gone, timeout) default to SKIP.
+        val r = kotlinx.coroutines.withTimeoutOrNull(CONFLICT_TIMEOUT_MS) {
+            req.response.await()
+        } ?: (ConflictPolicy.SKIP to false)
         _pendingConflict.value = null
         return r
     }
@@ -174,7 +177,10 @@ class OperationController(
 
     fun clearLastTrashed() { _lastTrashed.value = null }
 
+    fun clearLastResults() { _lastResults.value = null }
+
     companion object {
+        const val CONFLICT_TIMEOUT_MS = 120_000L
         @Volatile var instance: OperationController? = null
     }
 }

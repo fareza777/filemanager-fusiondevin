@@ -13,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.sorta.files.AppContainer
@@ -79,37 +81,134 @@ fun ConflictDialogHost(container: AppContainer) {
     )
 }
 
-/** Progress bottom sheet driven by the engine's progress flow. */
+/**
+ * Single operation surface: progress + conflict prompt + finish summary.
+ * The conflict UI lives INSIDE this sheet — a separate dialog would stack under
+ * the sheet and eat its taps.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OperationProgressHost(container: AppContainer) {
-    val running by container.operations.running.collectAsState()
-    val progress = container.operations.engine?.progress?.collectAsState()?.value
-    if (!running && progress?.finished != false) return
-    ModalBottomSheet(onDismissRequest = { /* block dismiss while running */ }) {
+fun OperationProgressHost(container: AppContainer, nav: androidx.navigation.NavController) {
+    val ops = container.operations
+    val running by ops.running.collectAsState()
+    val conflict by ops.pendingConflict.collectAsState()
+    val results by ops.lastResults.collectAsState()
+    val progress = ops.engine?.progress?.collectAsState()?.value
+    var dismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(running) { if (running) dismissed = false }
+
+    val busy = running || conflict != null
+    val visible = busy || (!dismissed && results != null)
+    if (!visible) return
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { v -> !(v == androidx.compose.material3.SheetValue.Hidden && busy) },
+    )
+    ModalBottomSheet(
+        onDismissRequest = { if (!busy) { dismissed = true; ops.clearLastResults() } },
+        sheetState = sheetState,
+        properties = androidx.compose.material3.ModalBottomSheetDefaults.properties(
+            shouldDismissOnBackPress = !busy),
+    ) {
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
-            val title = when (progress?.opType) {
-                app.sorta.files.core.ops.OpType.COPY -> stringResource(R.string.progress_copy)
-                app.sorta.files.core.ops.OpType.MOVE -> stringResource(R.string.progress_move)
-                app.sorta.files.core.ops.OpType.DELETE,
-                app.sorta.files.core.ops.OpType.DELETE_PERMANENT ->
-                    stringResource(R.string.progress_delete)
-                else -> stringResource(R.string.progress_title)
-            }
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(12.dp))
-            val frac = progress?.let {
-                if (it.totalBytes > 0) it.doneBytes.toFloat() / it.totalBytes
-                else if (it.totalItems > 0) it.doneItems.toFloat() / it.totalItems else 0f
-            } ?: 0f
-            LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-            Text(progress?.currentItem ?: "", style = MaterialTheme.typography.bodySmall,
-                maxLines = 1)
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { container.operations.cancel() }) {
-                    Text(stringResource(R.string.action_cancel))
+            when {
+                conflict != null -> {
+                    // ---- conflict prompt
+                    val r = conflict!!
+                    var applyAll by remember(r) { mutableStateOf(false) }
+                    Text(stringResource(R.string.conflict_title),
+                        style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.conflict_body, r.sourceName),
+                        style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.conflict_dest,
+                        app.sorta.files.core.fs.DisplayName.localized(
+                            LocalContext.current, r.destPath)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text(stringResource(R.string.overwrite_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = applyAll, onCheckedChange = { applyAll = it })
+                        Text(stringResource(R.string.conflict_apply_all))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            ops.resolveConflict(ConflictPolicy.SKIP, applyAll)
+                        }) { Text(stringResource(R.string.conflict_skip)) }
+                        TextButton(onClick = {
+                            ops.resolveConflict(ConflictPolicy.KEEP_BOTH, applyAll)
+                        }) { Text(stringResource(R.string.conflict_keep_both)) }
+                        TextButton(onClick = {
+                            ops.resolveConflict(ConflictPolicy.OVERWRITE, applyAll)
+                        }) {
+                            Text(stringResource(R.string.conflict_overwrite),
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { ops.cancel() }) {
+                        Text(stringResource(R.string.op_cancel),
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                running -> {
+                    // ---- progress
+                    val title = when (progress?.opType) {
+                        app.sorta.files.core.ops.OpType.COPY -> stringResource(R.string.progress_copy)
+                        app.sorta.files.core.ops.OpType.MOVE -> stringResource(R.string.progress_move)
+                        app.sorta.files.core.ops.OpType.DELETE,
+                        app.sorta.files.core.ops.OpType.DELETE_PERMANENT ->
+                            stringResource(R.string.progress_delete)
+                        else -> stringResource(R.string.progress_title)
+                    }
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(12.dp))
+                    val frac = progress?.let {
+                        if (it.totalBytes > 0) it.doneBytes.toFloat() / it.totalBytes
+                        else if (it.totalItems > 0) it.doneItems.toFloat() / it.totalItems else 0f
+                    } ?: 0f
+                    LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Text(progress?.currentItem ?: "", style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { ops.cancel() }) {
+                            Text(stringResource(R.string.op_cancel))
+                        }
+                    }
+                }
+                else -> {
+                    // ---- summary
+                    val ok = results?.count {
+                        it.status == app.sorta.files.core.ops.ItemStatus.SUCCESS } ?: 0
+                    val failed = results?.count {
+                        it.status == app.sorta.files.core.ops.ItemStatus.FAILED } ?: 0
+                    val skipped = results?.count {
+                        it.status == app.sorta.files.core.ops.ItemStatus.SKIPPED } ?: 0
+                    Text(stringResource(R.string.progress_title),
+                        style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.op_summary, ok, failed, skipped),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (failed > 0) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = {
+                            dismissed = true; ops.clearLastResults()
+                            nav.navigate(app.sorta.files.ui.navigation.Dest.HISTORY)
+                        }) { Text(stringResource(R.string.action_view_history)) }
+                        TextButton(onClick = {
+                            dismissed = true; ops.clearLastResults()
+                        }) { Text(stringResource(R.string.action_close)) }
+                    }
                 }
             }
         }

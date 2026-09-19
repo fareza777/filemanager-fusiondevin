@@ -38,7 +38,6 @@ import app.sorta.files.ui.preview.ImagePreviewScreen
 import app.sorta.files.ui.preview.PdfPreviewScreen
 import app.sorta.files.ui.preview.TextPreviewScreen
 import app.sorta.files.ui.search.SearchScreen
-import app.sorta.files.ui.components.ConflictDialogHost
 import app.sorta.files.ui.components.OperationProgressHost
 import app.sorta.files.ui.onboarding.OnboardingGate
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -97,8 +96,8 @@ fun RootApp(container: AppContainer) {
         ) { padding ->
             Box(Modifier.padding(padding)) {
                 SortaNavHost(nav, container)
-                ConflictDialogHost(container)
-                OperationProgressHost(container)
+                // Conflict prompt is rendered inside OperationProgressHost's sheet.
+                OperationProgressHost(container, nav)
             }
         }
     }
