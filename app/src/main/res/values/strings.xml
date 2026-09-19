@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sorta</string>
+    <string name="tagline">Sort it out.</string>
+
+    <string name="tab_home">Home</string>
+    <string name="tab_inbox">Inbox</string>
+    <string name="tab_browse">Browse</string>
+    <string name="tab_storage">Storage</string>
+
+    <string name="onboarding_title">All files access</string>
+    <string name="onboarding_body">Sorta is a file manager. To browse, organize and tidy your files it needs permission to access all files on this device. Nothing leaves your device — Sorta works offline.</string>
+    <string name="onboarding_grant">Grant access</string>
+    <string name="onboarding_continue">Continue without access</string>
+    <string name="permission_banner">File access was revoked. Some features won\'t work.</string>
+    <string name="permission_banner_grant">Grant access</string>
+
+    <string name="home_search_hint">Search files</string>
+    <string name="home_storage">Storage</string>
+    <string name="home_recent">Recent files</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_favorites">Favorite folders</string>
+    <string name="home_locations">Recent locations</string>
+    <string name="home_empty_favorites">No favorite folders yet. Add one from Browse → ⋮ → Add to favorites.</string>
+
+    <string name="browse_internal">Internal storage</string>
+    <string name="browse_categories">Categories</string>
+    <string name="cat_images">Images</string>
+    <string name="cat_videos">Videos</string>
+    <string name="cat_audio">Audio</string>
+    <string name="cat_documents">Documents</string>
+    <string name="cat_apks">APKs</string>
+    <string name="cat_archives">Archives</string>
+    <string name="cat_downloads">Downloads</string>
+    <string name="restricted_title">Restricted by Android</string>
+    <string name="restricted_body">Android blocks file managers from other apps\' Android/data and Android/obb folders.</string>
+
+    <string name="sort_name">Name</string>
+    <string name="sort_date">Date modified</string>
+    <string name="sort_size">Size</string>
+    <string name="sort_type">Type</string>
+    <string name="sort_asc">Ascending</string>
+    <string name="sort_desc">Descending</string>
+    <string name="view_list">List view</string>
+    <string name="view_grid">Grid view</string>
+    <string name="show_hidden">Show hidden files</string>
+    <string name="select_all">Select all</string>
+
+    <string name="action_copy">Copy</string>
+    <string name="action_move">Move</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_share">Share</string>
+    <string name="action_compress">Compress</string>
+    <string name="action_more">More</string>
+    <string name="action_open_with">Open with</string>
+    <string name="action_details">Details</string>
+    <string name="action_add_favorite">Add to favorites</string>
+    <string name="action_add_basket">Add to basket</string>
+    <string name="action_paste_here">Paste here (%1$d)</string>
+    <string name="action_clear_basket">Clear</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_new_folder">New folder</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_remove">Remove</string>
+
+    <string name="dialog_new_folder">New folder</string>
+    <string name="dialog_name">Name</string>
+    <string name="dialog_create">Create</string>
+    <string name="dialog_rename">Rename</string>
+    <string name="dialog_save">Save</string>
+    <string name="dialog_delete_title">Move to trash?</string>
+    <string name="dialog_delete_body">%1$d item(s) will be moved to Sorta trash and can be restored within 30 days.</string>
+    <string name="dialog_confirm">Confirm</string>
+    <string name="deleted_snackbar">Moved to trash</string>
+    <string name="delete_failed">Delete failed for some items</string>
+
+    <string name="conflict_title">File already exists</string>
+    <string name="conflict_body">“%1$s” already exists in the destination.</string>
+    <string name="conflict_skip">Skip</string>
+    <string name="conflict_keep_both">Keep both</string>
+    <string name="conflict_overwrite">Overwrite</string>
+    <string name="conflict_apply_all">Apply to all</string>
+
+    <string name="progress_title">Working…</string>
+    <string name="progress_copy">Copying</string>
+    <string name="progress_move">Moving</string>
+    <string name="progress_delete">Deleting</string>
+    <string name="op_done">Done</string>
+    <string name="op_failed_count">%1$d failed</string>
+    <string name="op_cancelled">Cancelled</string>
+    <string name="op_disk_full">Not enough space on destination</string>
+
+    <string name="details_title">Details</string>
+    <string name="details_path">Path</string>
+    <string name="details_size">Size</string>
+    <string name="details_modified">Modified</string>
+    <string name="details_type">Type</string>
+    <string name="details_contains">Contains</string>
+    <string name="items_count">%1$d items</string>
+
+    <string name="empty_folder">This folder is empty</string>
+    <string name="empty_results">No results</string>
+
+    <string name="search_title">Search</string>
+    <string name="search_hint">File name or .ext</string>
+    <string name="filter_type">Type</string>
+    <string name="filter_date">Date</string>
+    <string name="filter_size">Size</string>
+    <string name="filter_location">Location</string>
+    <string name="date_any">Any time</string>
+    <string name="date_today">Today</string>
+    <string name="date_7d">Last 7 days</string>
+    <string name="date_30d">Last 30 days</string>
+    <string name="size_any">Any size</string>
+    <string name="size_lt1">&lt; 1 MB</string>
+    <string name="size_1_10">1–10 MB</string>
+    <string name="size_10_100">10–100 MB</string>
+    <string name="size_gt100">&gt; 100 MB</string>
+    <string name="loc_all">Everywhere</string>
+    <string name="loc_volume">This volume</string>
+
+    <string name="recent_title">Recent files</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+
+    <string name="notif_channel_ops">File operations</string>
+    <string name="notif_working">File operation in progress</string>
+    <string name="notif_cancel">Cancel</string>
+
+    <string name="trash_name">Sorta trash</string>
+    <string name="share_chooser">Share via</string>
+    <string name="open_with_chooser">Open with</string>
+    <string name="no_app_to_open">No app can open this file</string>
+    <string name="placeholder_screen">Coming in a later phase</string>
+</resources>

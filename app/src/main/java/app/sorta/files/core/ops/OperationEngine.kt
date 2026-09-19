@@ -1,0 +1,265 @@
+package app.sorta.files.core.ops
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.security.MessageDigest
+import kotlin.coroutines.coroutineContext
+
+enum class OpType { COPY, MOVE, DELETE, DELETE_PERMANENT, RENAME, NEW_FOLDER }
+
+enum class ConflictPolicy { ASK, SKIP, KEEP_BOTH, OVERWRITE }
+
+enum class ItemStatus { PENDING, RUNNING, SUCCESS, FAILED, SKIPPED }
+
+data class ItemResult(
+    val source: String,
+    var dest: String?,
+    var status: ItemStatus = ItemStatus.PENDING,
+    var error: String? = null,
+)
+
+data class OperationProgress(
+    val opType: OpType,
+    val totalItems: Int,
+    val doneItems: Int,
+    val totalBytes: Long,
+    val doneBytes: Long,
+    val currentItem: String?,
+    val finished: Boolean = false,
+    val cancelled: Boolean = false,
+)
+
+/** A pending conflict awaiting a UI decision. */
+data class ConflictRequest(
+    val sourceName: String,
+    val destPath: String,
+    val response: CompletableDeferred<Pair<ConflictPolicy, Boolean>>, // policy, applyToAll
+)
+
+/**
+ * Callbacks the engine needs from its host (UI/controller).
+ * [trashMove] performs a delete-to-trash and returns the trash path used (or throws).
+ */
+interface OperationHost {
+    suspend fun askConflict(sourceName: String, destPath: String): Pair<ConflictPolicy, Boolean>
+    suspend fun trashMove(src: File): String // returns trash path
+}
+
+class OperationEngine(private val host: OperationHost) {
+
+    private val _progress = MutableStateFlow<OperationProgress?>(null)
+    val progress: StateFlow<OperationProgress?> = _progress
+
+    @Volatile private var applyAllPolicy: ConflictPolicy? = null
+
+    /** Injectable copier for tests (simulate IO failures). */
+    var copyBytes: (File, File, (Long) -> Unit) -> Unit = { src, dst, onBytes ->
+        FileInputStream(src).channel.use { inCh ->
+            FileOutputStream(dst).channel.use { outCh ->
+                val buf = java.nio.ByteBuffer.allocate(64 * 1024)
+                while (true) {
+                    buf.clear()
+                    val n = inCh.read(buf)
+                    if (n < 0) break
+                    buf.flip()
+                    outCh.write(buf)
+                    onBytes(n.toLong())
+                }
+                outCh.force(true)
+            }
+        }
+    }
+
+    var sha256: (File) -> String = { f ->
+        val md = MessageDigest.getInstance("SHA-256")
+        FileInputStream(f).use { ins ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = ins.read(buf); if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        md.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun totalSizeOf(f: File): Long =
+        if (f.isFile) f.length() else f.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+    private fun countItems(f: File): Int =
+        if (f.isFile) 1 else 1 + f.walkTopDown().count { it != f }
+
+    /** "name.ext" + existing check → keep-both name "name (1).ext". */
+    fun keepBothName(destDir: File, name: String): String {
+        if (!File(destDir, name).exists()) return name
+        val dot = name.lastIndexOf('.')
+        val stem = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ""
+        var i = 1
+        while (true) {
+            val cand = "$stem ($i)$ext"
+            if (!File(destDir, cand).exists()) return cand
+            i++
+        }
+    }
+
+    suspend fun run(
+        opType: OpType,
+        sources: List<File>,
+        destDir: File?,
+        conflictPolicy: ConflictPolicy,
+        renameTarget: String? = null,
+    ): List<ItemResult> = withContext(Dispatchers.IO) {
+        applyAllPolicy = if (conflictPolicy == ConflictPolicy.ASK) null else conflictPolicy
+        val results = sources.map { ItemResult(it.absolutePath, null) }
+        var totalBytes = 0L
+        sources.forEach { totalBytes += try { totalSizeOf(it) } catch (_: Exception) { 0L } }
+        var doneItems = 0
+        var doneBytes = 0L
+        fun emit(current: String?) {
+            _progress.value = OperationProgress(
+                opType, sources.size, doneItems, totalBytes, doneBytes, current)
+        }
+        emit(null)
+
+        // disk-full precheck for copy/move
+        if ((opType == OpType.COPY || opType == OpType.MOVE) && destDir != null) {
+            val free = destDir.usableSpace
+            if (free in 1 until totalBytes) {
+                sources.forEach { s ->
+                    results[sources.indexOf(s)].apply {
+                        status = ItemStatus.FAILED; error = "disk_full"
+                    }
+                }
+                _progress.value = _progress.value!!.copy(doneItems = sources.size, finished = true)
+                return@withContext results
+            }
+        }
+
+        for (i in sources.indices) {
+            if (!coroutineContext.isActive) {
+                _progress.value = _progress.value!!.copy(cancelled = true, finished = true)
+                return@withContext results
+            }
+            val src = sources[i]
+            val res = results[i]
+            res.status = ItemStatus.RUNNING
+            emit(src.name)
+            try {
+                when (opType) {
+                    OpType.COPY -> copyItem(src, destDir!!, res) { doneBytes += it; emit(src.name) }
+                    OpType.MOVE -> moveItem(src, destDir!!, res) { doneBytes += it; emit(src.name) }
+                    OpType.DELETE -> {
+                        res.dest = host.trashMove(src)
+                        res.status = ItemStatus.SUCCESS
+                    }
+                    OpType.DELETE_PERMANENT -> {
+                        if (!src.deleteRecursively()) throw IOException("delete failed")
+                        res.status = ItemStatus.SUCCESS
+                    }
+                    OpType.RENAME -> {
+                        val target = File(src.parentFile, renameTarget!!)
+                        if (!src.renameTo(target)) throw IOException("rename failed")
+                        res.dest = target.absolutePath
+                        res.status = ItemStatus.SUCCESS
+                    }
+                    OpType.NEW_FOLDER -> {
+                        val target = File(destDir!!, src.name)
+                        if (!target.mkdirs() && !target.isDirectory) throw IOException("mkdir failed")
+                        res.dest = target.absolutePath
+                        res.status = ItemStatus.SUCCESS
+                    }
+                }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: Exception) {
+                if (res.status == ItemStatus.RUNNING) {
+                    res.status = ItemStatus.FAILED
+                    res.error = e.message ?: e.javaClass.simpleName
+                }
+            }
+            doneItems++
+            emit(src.name)
+        }
+        _progress.value = _progress.value!!.copy(finished = true)
+        results
+    }
+
+    private suspend fun resolveConflict(src: File, destDir: File, res: ItemResult): File? {
+        var dest = File(destDir, src.name)
+        if (!dest.exists()) return dest
+        var policy = applyAllPolicy
+        if (policy == null || policy == ConflictPolicy.ASK) {
+            val (p, applyAll) = host.askConflict(src.name, dest.absolutePath)
+            if (applyAll) applyAllPolicy = p
+            policy = p
+        }
+        return when (policy) {
+            ConflictPolicy.SKIP -> { res.status = ItemStatus.SKIPPED; null }
+            ConflictPolicy.KEEP_BOTH -> File(destDir, keepBothName(destDir, src.name))
+            ConflictPolicy.OVERWRITE -> dest
+            ConflictPolicy.ASK -> { res.status = ItemStatus.SKIPPED; null }
+        }
+    }
+
+    private fun copyTree(src: File, dest: File, onBytes: (Long) -> Unit) {
+        if (src.isDirectory) {
+            if (!dest.mkdirs() && !dest.isDirectory) throw IOException("mkdir failed: ${dest.name}")
+            src.listFiles()?.forEach { copyTree(it, File(dest, it.name), onBytes) }
+        } else {
+            val tmp = File(dest.parentFile, ".sorta_tmp_" + dest.name)
+            try {
+                copyBytes(src, tmp, onBytes)
+                if (tmp.length() != src.length()) throw IOException("size mismatch")
+                if (src.length() <= 64L * 1024 * 1024 && sha256(tmp) != sha256(src))
+                    throw IOException("checksum mismatch")
+                if (dest.exists() && !dest.delete()) throw IOException("cannot overwrite")
+                if (!tmp.renameTo(dest)) throw IOException("rename failed")
+            } catch (e: Exception) {
+                tmp.delete()
+                throw e
+            }
+        }
+    }
+
+    private suspend fun copyItem(src: File, destDir: File, res: ItemResult, onBytes: (Long) -> Unit) {
+        val dest = resolveConflict(src, destDir, res) ?: return
+        copyTree(src, dest, onBytes)
+        res.dest = dest.absolutePath
+        res.status = ItemStatus.SUCCESS
+    }
+
+    private suspend fun moveItem(src: File, destDir: File, res: ItemResult, onBytes: (Long) -> Unit) {
+        // same-volume fast path
+        val naive = File(destDir, src.name)
+        if (!naive.exists() && src.renameTo(naive)) {
+            res.dest = naive.absolutePath
+            res.status = ItemStatus.SUCCESS
+            onBytes(totalSizeOf(naive))
+            return
+        }
+        val dest = resolveConflict(src, destDir, res) ?: return
+        copyTree(src, dest, onBytes)
+        // verified — now delete source
+        if (!src.deleteRecursively()) {
+            res.status = ItemStatus.FAILED
+            res.error = "source delete failed after copy"
+            return
+        }
+        res.dest = dest.absolutePath
+        res.status = ItemStatus.SUCCESS
+    }
+
+    private suspend fun totalSizeOfSafe(f: File): Long = try { totalSizeOf(f) } catch (_: Exception) { 0 }
+    private suspend fun countItemsSafe(f: File): Int = try { countItems(f) } catch (_: Exception) { 1 }
+    private suspend fun ensure() = coroutineContext.ensureActive()
+}

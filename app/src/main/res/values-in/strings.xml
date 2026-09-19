@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sorta</string>
+    <string name="tagline">Sort it out.</string>
+
+    <string name="tab_home">Beranda</string>
+    <string name="tab_inbox">Kotak Masuk</string>
+    <string name="tab_browse">Jelajah</string>
+    <string name="tab_storage">Penyimpanan</string>
+
+    <string name="onboarding_title">Akses semua file</string>
+    <string name="onboarding_body">Sorta adalah pengelola file. Untuk menjelajah, mengatur, dan merapikan file, Sorta memerlukan izin akses ke semua file di perangkat ini. Tidak ada data yang keluar dari perangkat — Sorta bekerja offline.</string>
+    <string name="onboarding_grant">Berikan akses</string>
+    <string name="onboarding_continue">Lanjut tanpa akses</string>
+    <string name="permission_banner">Akses file dicabut. Sebagian fitur tidak akan berfungsi.</string>
+    <string name="permission_banner_grant">Berikan akses</string>
+
+    <string name="home_search_hint">Cari file</string>
+    <string name="home_storage">Penyimpanan</string>
+    <string name="home_recent">File terbaru</string>
+    <string name="home_see_all">Lihat semua</string>
+    <string name="home_favorites">Folder favorit</string>
+    <string name="home_locations">Lokasi terakhir</string>
+    <string name="home_empty_favorites">Belum ada folder favorit. Tambahkan dari Jelajah → ⋮ → Tambahkan ke favorit.</string>
+
+    <string name="browse_internal">Penyimpanan internal</string>
+    <string name="browse_categories">Kategori</string>
+    <string name="cat_images">Gambar</string>
+    <string name="cat_videos">Video</string>
+    <string name="cat_audio">Audio</string>
+    <string name="cat_documents">Dokumen</string>
+    <string name="cat_apks">APK</string>
+    <string name="cat_archives">Arsip</string>
+    <string name="cat_downloads">Unduhan</string>
+    <string name="restricted_title">Dibatasi oleh Android</string>
+    <string name="restricted_body">Android melarang pengelola file mengakses folder Android/data dan Android/obb milik aplikasi lain.</string>
+
+    <string name="sort_name">Nama</string>
+    <string name="sort_date">Tanggal diubah</string>
+    <string name="sort_size">Ukuran</string>
+    <string name="sort_type">Jenis</string>
+    <string name="sort_asc">Naik</string>
+    <string name="sort_desc">Turun</string>
+    <string name="view_list">Tampilan daftar</string>
+    <string name="view_grid">Tampilan grid</string>
+    <string name="show_hidden">Tampilkan file tersembunyi</string>
+    <string name="select_all">Pilih semua</string>
+
+    <string name="action_copy">Salin</string>
+    <string name="action_move">Pindahkan</string>
+    <string name="action_rename">Ubah nama</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_share">Bagikan</string>
+    <string name="action_compress">Kompres</string>
+    <string name="action_more">Lainnya</string>
+    <string name="action_open_with">Buka dengan</string>
+    <string name="action_details">Detail</string>
+    <string name="action_add_favorite">Tambahkan ke favorit</string>
+    <string name="action_add_basket">Tambahkan ke keranjang</string>
+    <string name="action_paste_here">Tempel di sini (%1$d)</string>
+    <string name="action_clear_basket">Kosongkan</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_new_folder">Folder baru</string>
+    <string name="action_undo">Urungkan</string>
+    <string name="action_restore">Pulihkan</string>
+    <string name="action_remove">Hapus</string>
+
+    <string name="dialog_new_folder">Folder baru</string>
+    <string name="dialog_name">Nama</string>
+    <string name="dialog_create">Buat</string>
+    <string name="dialog_rename">Ubah nama</string>
+    <string name="dialog_save">Simpan</string>
+    <string name="dialog_delete_title">Pindahkan ke sampah?</string>
+    <string name="dialog_delete_body">%1$d item akan dipindahkan ke sampah Sorta dan dapat dipulihkan dalam 30 hari.</string>
+    <string name="dialog_confirm">Konfirmasi</string>
+    <string name="deleted_snackbar">Dipindahkan ke sampah</string>
+    <string name="delete_failed">Sebagian item gagal dihapus</string>
+
+    <string name="conflict_title">File sudah ada</string>
+    <string name="conflict_body">“%1$s” sudah ada di tujuan.</string>
+    <string name="conflict_skip">Lewati</string>
+    <string name="conflict_keep_both">Simpan keduanya</string>
+    <string name="conflict_overwrite">Timpa</string>
+    <string name="conflict_apply_all">Terapkan ke semua</string>
+
+    <string name="progress_title">Memproses…</string>
+    <string name="progress_copy">Menyalin</string>
+    <string name="progress_move">Memindahkan</string>
+    <string name="progress_delete">Menghapus</string>
+    <string name="op_done">Selesai</string>
+    <string name="op_failed_count">%1$d gagal</string>
+    <string name="op_cancelled">Dibatalkan</string>
+    <string name="op_disk_full">Ruang tujuan tidak cukup</string>
+
+    <string name="details_title">Detail</string>
+    <string name="details_path">Lokasi</string>
+    <string name="details_size">Ukuran</string>
+    <string name="details_modified">Diubah</string>
+    <string name="details_type">Jenis</string>
+    <string name="details_contains">Isi</string>
+    <string name="items_count">%1$d item</string>
+
+    <string name="empty_folder">Folder ini kosong</string>
+    <string name="empty_results">Tidak ada hasil</string>
+
+    <string name="search_title">Pencarian</string>
+    <string name="search_hint">Nama file atau .ext</string>
+    <string name="filter_type">Jenis</string>
+    <string name="filter_date">Tanggal</string>
+    <string name="filter_size">Ukuran</string>
+    <string name="filter_location">Lokasi</string>
+    <string name="date_any">Kapan saja</string>
+    <string name="date_today">Hari ini</string>
+    <string name="date_7d">7 hari terakhir</string>
+    <string name="date_30d">30 hari terakhir</string>
+    <string name="size_any">Ukuran apa pun</string>
+    <string name="size_lt1">&lt; 1 MB</string>
+    <string name="size_1_10">1–10 MB</string>
+    <string name="size_10_100">10–100 MB</string>
+    <string name="size_gt100">&gt; 100 MB</string>
+    <string name="loc_all">Semua lokasi</string>
+    <string name="loc_volume">Volume ini</string>
+
+    <string name="recent_title">File terbaru</string>
+    <string name="today">Hari ini</string>
+    <string name="yesterday">Kemarin</string>
+
+    <string name="notif_channel_ops">Operasi file</string>
+    <string name="notif_working">Operasi file sedang berjalan</string>
+    <string name="notif_cancel">Batal</string>
+
+    <string name="trash_name">Sampah Sorta</string>
+    <string name="share_chooser">Bagikan lewat</string>
+    <string name="open_with_chooser">Buka dengan</string>
+    <string name="no_app_to_open">Tidak ada aplikasi yang dapat membuka file ini</string>
+    <string name="placeholder_screen">Segera hadir di fase berikutnya</string>
+</resources>
